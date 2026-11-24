@@ -91,7 +91,7 @@ begin
 end $$;
 
 create or replace function public._ss_err(p_code text, p_extra jsonb default '{}'::jsonb) returns jsonb
-language sql immutable as $$ select jsonb_build_object('ok', false, 'error', p_code) || p_extra $$;
+language sql immutable set search_path = public, pg_temp as $$ select jsonb_build_object('ok', false, 'error', p_code) || p_extra $$;
 
 -- ---------- Public functions for players ----------
 create or replace function public.ss_public() returns jsonb
@@ -261,6 +261,33 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Checks the draw using totals only (never returns who got whom).
+create or replace function public._ss_draw_check() returns jsonb
+language sql stable security definer set search_path = public, extensions, pg_temp as $$
+  with c as (select
+    (select count(*) from ss_people) as people,
+    (select count(*) from ss_people where receiver_id is not null) as giving,
+    (select count(distinct receiver_id) from ss_people) as receiving,
+    (select count(*) from ss_people where receiver_id = id) as self,
+    (select count(*) from ss_people p join ss_people r on r.id = p.receiver_id where r.family_id = p.family_id) as same_family)
+  select jsonb_build_object('people', people, 'giving', giving, 'receiving', receiving, 'self', self, 'same_family', same_family,
+    'valid', people >= 3 and giving = people and receiving = people and self = 0 and same_family = 0) from c
+$$;
+
+create or replace function public.ss_admin_check(p_pw text) returns jsonb
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
+declare e text := _ss_admin(p_pw);
+begin
+  if e is not null then return _ss_err(e); end if;
+  return jsonb_build_object('ok', true, 'check', _ss_draw_check());
+end $$;
+
+-- Database rules: nobody can be drawn twice, nobody can draw themselves.
+create unique index if not exists ss_people_receiver_uq on public.ss_people (receiver_id) where receiver_id is not null;
+do $$ begin
+  alter table public.ss_people add constraint ss_people_not_self check (receiver_id is distinct from id);
+exception when duplicate_object then null; end $$;
+
 -- The draw runs here in the database, so nobody's browser (not even the admin's) ever sees the pairs.
 create or replace function public.ss_admin_draw(p_pw text) returns jsonb
 language plpgsql security definer set search_path = public, extensions, pg_temp as $$
@@ -299,6 +326,8 @@ begin
   delete from ss_messages where true;
   update ss_people p set receiver_id = ids[assign[t.i]], viewed_at = null
     from generate_series(1, n) t(i) where p.id = ids[t.i];
+  -- Belt and braces: if anything about the result is wrong, undo everything.
+  if not (_ss_draw_check()->>'valid')::boolean then raise exception 'Draw verification failed'; end if;
   update ss_settings set drawn_at = now() where id = 1;
   return jsonb_build_object('ok', true);
 end $$;
@@ -336,18 +365,18 @@ begin
 end $$;
 
 -- ---------- Who may call what ----------
-revoke execute on function public._ss_event(), public._ss_admin(text), public._ss_err(text, jsonb) from public, anon, authenticated;
+revoke execute on function public._ss_event(), public._ss_admin(text), public._ss_err(text, jsonb), public._ss_draw_check() from public, anon, authenticated;
 revoke execute on function
   public.ss_public(), public.ss_register(text, text, text, text), public.ss_login(text, text),
   public.ss_me(text), public.ss_send(text, text, text),
   public.ss_admin_setup(text), public.ss_admin_state(text), public.ss_admin_save_event(text, jsonb),
   public.ss_admin_save_people(text, jsonb), public.ss_admin_draw(text), public.ss_admin_undo_draw(text),
-  public.ss_admin_reset_person(text, uuid), public.ss_admin_password(text, text)
+  public.ss_admin_reset_person(text, uuid), public.ss_admin_password(text, text), public.ss_admin_check(text)
 from public;
 grant execute on function
   public.ss_public(), public.ss_register(text, text, text, text), public.ss_login(text, text),
   public.ss_me(text), public.ss_send(text, text, text),
   public.ss_admin_setup(text), public.ss_admin_state(text), public.ss_admin_save_event(text, jsonb),
   public.ss_admin_save_people(text, jsonb), public.ss_admin_draw(text), public.ss_admin_undo_draw(text),
-  public.ss_admin_reset_person(text, uuid), public.ss_admin_password(text, text)
+  public.ss_admin_reset_person(text, uuid), public.ss_admin_password(text, text), public.ss_admin_check(text)
 to anon, authenticated;
