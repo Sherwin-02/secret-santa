@@ -9,6 +9,9 @@ A Secret Santa website with an organiser panel, family exclusions, private PIN-l
 Live site: https://sherwin-02.github.io/secret-santa/
 Organiser panel: https://sherwin-02.github.io/secret-santa/#admin
 
+## Status
+The database is set up (Supabase project `secret-santa`, Sydney) and connected in `index.html`. All that's left is turning on GitHub Pages and setting the admin password (steps 3–4 below).
+
 ## One-time setup (about 10 minutes)
 
 ### 1. Create the free database
