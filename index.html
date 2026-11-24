@@ -3,193 +3,346 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Secret Santa Draw</title>
+<title>Secret Santa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<script>
+// ===== Settings: paste your Supabase details here (Project Settings → API) =====
+const SUPABASE_URL = '';   // e.g. https://abcdxyz.supabase.co
+const SUPABASE_KEY = '';   // the "anon public" or "publishable" key (safe to be public)
+</script>
 <style>
-/* VOICE: warm, festive, but tidy and trustworthy — a tool people use on a phone.
-   IDEA: a gift tag — each match is a folded tag you only open with your own code.
-   PICTURE: the working app itself; the reveal is a big swinging gift tag.
-   COLOUR and TYPE: pine green field, white tags, berry red accent, a touch of gold; Bagel Fat One + Nunito.
-   LAYOUT: one calm column, segmented switch at top, families as cards, results as a send list. */
 :root{color-scheme:light dark;
 --bg:light-dark(#0f3d2e,#0a2219);--panel:light-dark(#ffffff,#13281f);--ink:light-dark(#14231c,#eef5f0);
---soft:light-dark(#5c6e65,#9fb5aa);--line:light-dark(#dfe7e2,#24433a);--red:#d1263b;--gold:#e3b23c;--field:light-dark(#f4f7f5,#0d1f18)}
-:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+--soft:light-dark(#5c6e65,#9fb5aa);--line:light-dark(#dfe7e2,#24433a);--red:#d1263b;--gold:#e3b23c;--field:light-dark(#f4f7f5,#0d1f18);
+--me:light-dark(#d1263b,#b81f33);--them:light-dark(#eef3f0,#1d382d)}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Nunito,system-ui,sans-serif;overflow-x:clip;min-height:100vh}
-.wrap{max-width:720px;margin:0 auto;padding:clamp(20px,4vw,44px) max(4vw,14px) 60px}
-h1{font:400 clamp(32px,7vw,48px)/1.05 'Bagel Fat One',system-ui;color:#fff;margin:0 0 6px;text-wrap:balance}
-.sub{color:#cfe3d8;margin:0 0 22px}
-.seg{display:flex;background:rgba(255,255,255,.1);border-radius:999px;padding:4px;margin-bottom:22px}
-.seg button{flex:1;min-height:44px;border:0;border-radius:999px;background:none;color:#e6f1eb;font:800 16px Nunito,sans-serif;cursor:pointer}
-.seg button[aria-pressed=true]{background:#fff;color:#0f3d2e}
+.wrap{max-width:680px;margin:0 auto;padding:clamp(20px,4vw,40px) max(4vw,14px) 60px}
+h1{font:400 clamp(32px,8vw,48px)/1.05 'Bagel Fat One',system-ui;color:#fff;margin:0 0 6px;text-wrap:balance}
+.sub{color:#cfe3d8;margin:0 0 20px}
 .card{background:var(--panel);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .card h2{font:800 19px/1.3 Nunito,sans-serif;margin:0 0 10px}
 .muted{color:var(--soft);font-size:14px;margin:0 0 12px}
-input{font:16px Nunito,sans-serif;width:100%;min-height:44px;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink)}
-input:focus,button:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
-.famhead{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-.famhead input{font-weight:800}
-.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 44px;gap:8px;margin-bottom:8px}
+label{font-weight:800;font-size:14px;display:block;margin:10px 0 4px}
+input,textarea{font:16px Nunito,sans-serif;width:100%;min-height:44px;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink)}
+textarea{min-height:80px;resize:vertical}
+input:focus,textarea:focus,button:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
+.pin{font:800 24px ui-monospace,Menlo,monospace;letter-spacing:.5em;text-align:center}
 .btn{min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:800 15px Nunito,sans-serif;cursor:pointer;white-space:nowrap}
 .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
-.btn.big{width:100%;min-height:54px;font-size:18px;border-radius:14px}
+.btn.big{width:100%;min-height:54px;font-size:18px;border-radius:14px;margin-top:14px}
+.btn:disabled{opacity:.5;cursor:default}
 .x{width:44px;padding:0;color:var(--soft);font-size:20px}
-.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
-label{font-weight:800;font-size:14px;display:block;margin-bottom:4px}
-.err{background:#fde8eb;color:#8a1022;border-radius:12px;padding:12px 14px;margin:0 0 14px;font-weight:600}
-.send{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
-.send:first-of-type{border-top:0}
-.send b{font-size:17px}.send small{display:block;color:var(--soft);font-size:13px;overflow-wrap:anywhere}
-.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.acts a{display:inline-flex;align-items:center;text-decoration:none}
-.done{opacity:.55}
-.tick{color:#1f8a4c;font-weight:800;font-size:13px}
-.code{font:800 22px/1.3 ui-monospace,Menlo,monospace;letter-spacing:.04em;text-transform:uppercase;text-align:center}
-.tagzone{display:flex;justify-content:center;padding:10px 0 4px}
-.tag{position:relative;width:min(320px,90%);background:#fff;color:#14231c;border-radius:14px 14px 14px 14px;padding:46px 22px 26px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.35);transform-origin:50% 0;animation:swing 1.6s ease-out}
+.seg{display:flex;background:var(--field);border-radius:999px;padding:4px;margin-bottom:6px}
+.seg button{flex:1;min-height:42px;border:0;border-radius:999px;background:none;color:var(--soft);font:800 15px Nunito,sans-serif;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--red);color:#fff}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0}
+.facts div{background:var(--field);border-radius:12px;padding:10px 12px}
+.facts dt{font-size:13px;color:var(--soft)}.facts dd{margin:0;font-weight:800;font-size:17px}
+.note{white-space:pre-wrap;margin:12px 0 0}
+.err{background:#fde8eb;color:#8a1022;border-radius:12px;padding:12px 14px;margin:12px 0 0;font-weight:600}
+.ok{background:#e3f5ea;color:#11592e;border-radius:12px;padding:12px 14px;margin:12px 0 0;font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;color:#e6f1eb}
+.top .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+.tagzone{display:flex;justify-content:center;padding:6px 0 10px}
+.tag{position:relative;width:min(340px,92%);background:#fff;color:#14231c;border-radius:14px;padding:46px 22px 26px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.35);transform-origin:50% 0;animation:swing 1.6s ease-out;border:0;font:inherit;cursor:pointer}
 .tag::before{content:"";position:absolute;top:14px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 0 3px var(--gold)}
 .tag .to{font-size:15px;color:#5c6e65;margin:0}
 .tag .name{font:400 clamp(34px,9vw,46px)/1.05 'Bagel Fat One',system-ui;color:var(--red);margin:10px 0 8px;overflow-wrap:anywhere}
-.tag .meta{font-size:14px;color:#5c6e65;margin:0}
+.tag .hint{font-size:14px;color:#5c6e65;margin:0}
+.tag.closed .name{color:#14231c}
 @keyframes swing{0%{transform:rotate(-14deg) translateY(-20px);opacity:0}40%{transform:rotate(8deg);opacity:1}70%{transform:rotate(-3deg)}100%{transform:none}}
 @media(prefers-reduced-motion:reduce){.tag{animation:none}}
-.note{color:#cfe3d8;font-size:13px;margin:16px 4px 0}
-@media(max-width:600px){.row{grid-template-columns:minmax(0,1fr) 44px}.row .contact{grid-column:1/2}.grid2{grid-template-columns:minmax(0,1fr)}.send{grid-template-columns:minmax(0,1fr)}.acts{justify-content:flex-start}}
+.thread{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;padding:6px 2px;margin:8px 0}
+.bub{max-width:82%;padding:8px 12px;border-radius:16px;background:var(--them);overflow-wrap:anywhere;white-space:pre-wrap}
+.bub.me{align-self:flex-end;background:var(--me);color:#fff}
+.bub small{display:block;font-size:12px;opacity:.75;margin-top:2px}
+.compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.empty{color:var(--soft);font-size:14px;text-align:center;padding:14px 0}
+.famhead{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.famhead input{font-weight:800}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:9px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--soft);border-top:0}
+td small{display:block;color:var(--soft);font-size:13px;overflow-wrap:anywhere}
+.yes{color:#1f8a4c;font-weight:800}.no{color:var(--soft)}
+.foot{color:#cfe3d8;font-size:13px;margin:18px 4px 0}
+.foot a{color:#fff}
+@media(max-width:600px){.grid2{grid-template-columns:minmax(0,1fr)}
+ .stack thead{display:none}.stack tr{display:grid;padding:10px 0;border-top:1px solid var(--line)}.stack td{border:0;padding:2px 0}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Secret Santa</h1>
-  <p class="sub">Family-proof draw. Everyone gets a private code; only they can open their match.</p>
-  <div class="seg" role="group" aria-label="Mode">
-    <button id="tabOrg" aria-pressed="true">Organise the draw</button>
-    <button id="tabRev" aria-pressed="false">Reveal my match</button>
-  </div>
-  <main id="app"></main>
-  <p class="note">Matches are never shown on the organiser's screen and aren't stored anywhere — each one lives only inside that person's code.</p>
-</div>
+<div class="wrap"><div id="app"><p class="sub">Loading…</p></div></div>
 <script>
 {
-const A='0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const uid=()=>Math.random().toString(36).slice(2,9);
-const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, s = localStorage) { try { return s.getItem(k) } catch (e) { return null } },
+  set(k, v, s = localStorage) { try { v == null ? s.removeItem(k) : s.setItem(k, v) } catch (e) {} }
+};
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16) }));
+const ERR = {
+  not_found: 'That name isn’t on the list. Check the spelling, or ask the organiser to add you.',
+  taken: 'This name already has an account. Use “Log in” instead. If that wasn’t you, ask the organiser to reset it.',
+  not_registered: 'You haven’t joined yet. Tap “Join” first.',
+  wrong_pin: 'Wrong PIN.', locked: 'Too many wrong tries. Locked for a few minutes.',
+  bad_pin: 'The PIN must be exactly 4 digits.', bad_email: 'Please enter a valid email.', bad_phone: 'Please enter a valid mobile number.',
+  session: 'Please log in again.', not_drawn: 'Names haven’t been drawn yet.', bad_message: 'Type a message first.', slow_down: 'Slow down a little — try again in a few minutes.',
+  wrong_password: 'Wrong admin password.', no_admin: 'Admin isn’t set up yet.', short_password: 'Use at least 6 characters.', already_setup: 'Admin is already set up — log in instead.',
+  already_drawn: 'Names are already drawn. Undo the draw first to change the list.', duplicate_name: 'Two people have the same name. Add an initial to one.',
+  empty_name: 'One of the people has no name.', too_few: 'You need at least 3 people.', family_too_big: 'One family is more than half the group, so a fair draw is impossible.',
+  no_solution: 'Couldn’t find a valid draw. Try again.'
+};
+const errText = r => {
+  let t = ERR[r.error] || ('Something went wrong (' + r.error + ').');
+  if (r.error === 'wrong_pin' && r.left) t += ` ${r.left} ${r.left === 1 ? 'try' : 'tries'} left before a 15-minute lock.`;
+  if (r.error === 'locked' && r.minutes) t = `Too many wrong tries. Try again in ${r.minutes} minute${r.minutes == 1 ? '' : 's'}.`;
+  if (r.error === 'family_too_big') t = `One family has ${r.size} of the ${r.total} people — more than half — so a fair draw is impossible.`;
+  return t;
+};
+async function rpc(fn, args = {}) {
+  const h = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+  if (!SUPABASE_KEY.startsWith('sb_')) h.Authorization = 'Bearer ' + SUPABASE_KEY;
+  let r;
+  try { r = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method: 'POST', headers: h, body: JSON.stringify(args) }) }
+  catch (e) { return { ok: false, error: 'network' } }
+  const j = await r.json().catch(() => null);
+  if (!r.ok) return { ok: false, error: 'server', detail: j && j.message };
+  return j;
+}
+ERR.network = 'Can’t reach the server. Check your internet and try again.';
+ERR.server = 'The server returned an error. If you’re the organiser, check the setup steps.';
 
-function b32(bytes){let bits=0,val=0,out='';for(const b of bytes){val=(val<<8)|b;bits+=8;while(bits>=5){out+=A[(val>>>(bits-5))&31];bits-=5}val&=(1<<bits)-1}if(bits>0)out+=A[(val<<(5-bits))&31];return out}
-function unb32(s){let bits=0,val=0;const out=[];for(const ch of s){const i=A.indexOf(ch);if(i<0)return null;val=(val<<5)|i;bits+=5;if(bits>=8){out.push((val>>>(bits-8))&255);bits-=8}val&=(1<<bits)-1}return out}
-function keystream(s0,s1,s2,n){let x=((s0<<16)|(s1<<8)|s2)^0x9E3779B9;x>>>=0;if(!x)x=1;const k=[];for(let i=0;i<n;i++){x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;k.push(x&255)}return k}
-function check(bytes){let c=7;for(const b of bytes)c=(c*31+b)&255;return c}
-function encode(text){const p=[...new TextEncoder().encode(text)];const salt=[0,0,0].map(()=>Math.floor(Math.random()*256));const k=keystream(...salt,p.length);const body=p.map((b,i)=>b^k[i]);const s=b32([...salt,...body,check(p)]);return s.match(/.{1,4}/g).join('-')}
-function decode(code){const s=code.toUpperCase().replace(/O/g,'0').replace(/[IL]/g,'1').replace(/[^0-9A-Z]/g,'');if(s.length<8)return null;const b=unb32(s);if(!b||b.length<5)return null;const salt=b.slice(0,3),body=b.slice(3,-1),c=b[b.length-1];const k=keystream(...salt,body.length);const p=body.map((x,i)=>x^k[i]);if(check(p)!==c)return null;try{return new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(p))}catch(e){return null}}
+const fmtTime = t => { const d = new Date(t); return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) };
+const eventFacts = ev => `<dl class="facts">
+  ${ev.budget ? `<div><dt>Budget</dt><dd>${esc(ev.budget)}</dd></div>` : ''}
+  ${ev.date ? `<div><dt>Gift exchange</dt><dd>${esc(ev.date)}</dd></div>` : ''}
+  <div><dt>Names drawn</dt><dd>${ev.drawn ? 'Yes' : 'Not yet'}</dd></div></dl>
+  ${ev.note ? `<p class="note">${esc(ev.note)}</p>` : ''}`;
+const busy = (btn, on) => { if (btn) { btn.disabled = on; if (on) { btn.dataset.t = btn.textContent; btn.textContent = 'Please wait…' } else if (btn.dataset.t) btn.textContent = btn.dataset.t } };
+const msgBox = (sel, html, cls = 'err') => { const el = app.querySelector(sel); if (el) el.innerHTML = html ? `<p class="${cls}">${html}</p>` : '' };
 
-const KEY='secret-santa-v1';
-const sample=()=>({families:[
- {id:uid(),name:'Kumar family',members:[{id:uid(),name:'Arun',contact:''},{id:uid(),name:'Priya',contact:''},{id:uid(),name:'Dev',contact:''}]},
- {id:uid(),name:'Smith family',members:[{id:uid(),name:'Jack',contact:''},{id:uid(),name:'Emma',contact:''}]},
- {id:uid(),name:'Nguyen family',members:[{id:uid(),name:'Minh',contact:''},{id:uid(),name:'Lan',contact:''}]},
- {id:uid(),name:'Lisa',members:[{id:uid(),name:'Lisa',contact:''}]}],
- budget:'$30',date:'',link:'',results:null,sample:true});
-let st,hadSaved=false;
-try{const raw=localStorage.getItem(KEY);if(raw){st=JSON.parse(raw);hadSaved=true}}catch(e){}
-if(!st)st=sample();
-const hosted=/^https?:$/.test(location.protocol)&&!/claude\.(ai|site|com)|claudeusercontent/.test(location.hostname);
-const selfLink=location.origin+location.pathname;
-if(hosted&&!st.link)st.link=selfLink;
-const qc=new URLSearchParams(location.search).get('c');
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
+/* ================= PLAYER ================= */
+let pub = null, me = null, authTab = 'join', opened = false, chatTab = 'giftee', poll = null;
+const TOKEN = 'ss-token';
 
-let mode=(qc||location.hash==='#reveal')?'reveal':'org';
-let error='',redrawArm=false,revealed=null,revealErr='',copied='';
-const app=document.getElementById('app');
+async function player() {
+  clearInterval(poll);
+  const tok = store.get(TOKEN);
+  if (tok) { const r = await rpc('ss_me', { p_token: tok }); if (r.ok) { me = r; return playerHome() } store.set(TOKEN, null) }
+  pub = await rpc('ss_public');
+  if (!pub.ok) { app.innerHTML = `<h1>Secret Santa</h1><p class="err">${esc(errText(pub))}</p>`; return }
+  playerAuth();
+}
 
-function people(){const p=[];st.families.forEach(f=>f.members.forEach(m=>{if(m.name.trim())p.push({name:m.name.trim(),contact:m.contact.trim(),fam:f.id})}));return p}
-function solve(p){const n=p.length;const size={};p.forEach(x=>size[x.fam]=(size[x.fam]||0)+1);
- const giv=shuffle([...Array(n).keys()]).sort((a,b)=>size[p[b].fam]-size[p[a].fam]);
- const to=new Array(n).fill(-1),taken=new Array(n).fill(false);let steps=0;
- const go=k=>{if(k===n)return true;if(++steps>200000)return false;const g=giv[k];for(const r of shuffle([...Array(n).keys()])){if(taken[r]||r===g||p[r].fam===p[g].fam)continue;taken[r]=true;to[g]=r;if(go(k+1))return true;taken[r]=false}return false};
- return go(0)?to:null}
+function playerAuth() {
+  const ev = pub.event;
+  app.innerHTML = `<h1>${esc(ev.name)}</h1><p class="sub">Join with your details, then reveal who you’re buying for.</p>
+  <section class="card">${eventFacts(ev)}</section>
+  <section class="card">
+    <div class="seg" role="group" aria-label="Join or log in"><button data-tab="join" aria-pressed="${authTab === 'join'}">Join</button><button data-tab="login" aria-pressed="${authTab === 'login'}">Log in</button></div>
+    <form id="auth">
+      <label for="nm">Your name</label>
+      <input id="nm" list="names" autocomplete="off" required placeholder="As the organiser listed you">
+      <datalist id="names">${pub.names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      ${authTab === 'join' ? `<label for="em">Email</label><input id="em" type="email" autocomplete="email" required>
+      <label for="ph">Mobile</label><input id="ph" type="tel" autocomplete="tel" required>
+      <label for="pin">Choose a 4-digit PIN</label><input id="pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required>
+      <label for="pin2">Type the PIN again</label><input id="pin2" class="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required>
+      <p class="muted" style="margin-top:8px">Your PIN locks your match so only you can see it. Don’t share it.</p>`
+      : `<label for="pin">Your 4-digit PIN</label><input id="pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required>
+      <p class="muted" style="margin-top:8px">Forgot your PIN? Ask the organiser to reset your account, then join again.</p>`}
+      <div id="authMsg"></div>
+      <button class="btn primary big">${authTab === 'join' ? 'Join and see my match' : 'Log in'}</button>
+    </form></section>`;
+  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { authTab = b.dataset.tab; playerAuth() });
+  app.querySelector('#auth').onsubmit = async e => {
+    e.preventDefault();
+    const v = id => app.querySelector('#' + id)?.value.trim() || '';
+    const btn = e.submitter || app.querySelector('#auth .btn');
+    let r;
+    if (authTab === 'join') {
+      if (v('pin') !== v('pin2')) return msgBox('#authMsg', 'The two PINs don’t match.');
+      busy(btn, true); r = await rpc('ss_register', { p_name: v('nm'), p_email: v('em'), p_phone: v('ph'), p_pin: v('pin') });
+    } else { busy(btn, true); r = await rpc('ss_login', { p_name: v('nm'), p_pin: v('pin') }) }
+    busy(btn, false);
+    if (!r.ok) return msgBox('#authMsg', esc(errText(r)));
+    store.set(TOKEN, r.token); opened = false; player();
+  };
+}
 
-function doDraw(){error='';const p=people();
- const names=p.map(x=>x.name.toLowerCase());const dup=names.find((n,i)=>names.indexOf(n)!==i);
- if(p.length<3){error='Add at least three people.';return render()}
- if(dup){error=`Two people are called “${esc(p[names.indexOf(dup)].name)}”. Add a surname or initial so codes aren't confused.`;return render()}
- const size={};p.forEach(x=>size[x.fam]=(size[x.fam]||0)+1);const big=Math.max(...Object.values(size));
- if(big>p.length/2){error=`One family has ${big} of the ${p.length} people — more than half — so a no-family draw is impossible. Add more people or split that group.`;return render()}
- const to=solve(p);if(!to){error='Couldn’t find a valid draw. Try again or adjust the families.';return render()}
- st.results=p.map((g,i)=>({giver:g.name,contact:g.contact,code:encode(g.name+'\u0001'+p[to[i]].name),sent:false}));
- st.sample=false;redrawArm=false;save();render();
- document.getElementById('results')?.scrollIntoView({behavior:'smooth'})}
+function playerHome() {
+  const ev = me.event;
+  app.innerHTML = `<div class="top"><span>Hi <b>${esc(me.name)}</b></span><button class="btn" id="out">Log out</button></div>
+  <h1>${esc(ev.name)}</h1>
+  ${me.giftee ? `<div class="tagzone">${opened
+      ? `<div class="tag"><p class="to">You’re Secret Santa for</p><p class="name">${esc(me.giftee)}</p><p class="hint">Keep it secret!</p></div>`
+      : `<button class="tag closed" id="open"><p class="to">Your match is ready</p><p class="name">Tap to reveal</p><p class="hint">Make sure no one’s looking</p></button>`}</div>`
+    : `<section class="card"><h2>Names haven’t been drawn yet</h2><p class="muted" style="margin:0">You’re signed up. Come back after the organiser draws names — your match will appear here.</p><button class="btn big" id="refresh">Check again</button></section>`}
+  <section class="card">${eventFacts(ev)}</section>
+  ${me.giftee ? `<section class="card"><h2>Anonymous messages</h2>
+    <div class="seg" role="group" aria-label="Conversation"><button data-c="giftee" aria-pressed="${chatTab === 'giftee'}">To ${opened ? esc(me.giftee) : 'my match'}</button><button data-c="santa" aria-pressed="${chatTab === 'santa'}">From my Santa</button></div>
+    <p class="muted" style="margin-top:8px">${chatTab === 'giftee' ? 'Ask for gift hints. They’ll see the message as from “Your Secret Santa”.' : 'Your Secret Santa can message you here. Reply without knowing who they are.'}</p>
+    <div class="thread" id="thread"></div>
+    <form class="compose" id="send"><input id="msg" maxlength="1000" placeholder="${chatTab === 'giftee' ? 'Message your match…' : 'Reply to your Santa…'}" autocomplete="off"><button class="btn primary">Send</button></form>
+    <div id="chatMsg"></div></section>` : ''}
+  <p class="foot">Your match and messages are hidden from everyone else, including the organiser.</p>`;
+  app.querySelector('#out').onclick = () => { store.set(TOKEN, null); me = null; opened = false; player() };
+  app.querySelector('#open')?.addEventListener('click', () => { opened = true; playerHome() });
+  app.querySelector('#refresh')?.addEventListener('click', refreshMe);
+  app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { chatTab = b.dataset.c; playerHome() });
+  const f = app.querySelector('#send');
+  if (f) f.onsubmit = async e => {
+    e.preventDefault(); const inp = app.querySelector('#msg'); const body = inp.value.trim(); if (!body) return;
+    const btn = f.querySelector('button'); busy(btn, true);
+    const r = await rpc('ss_send', { p_token: store.get(TOKEN), p_to: chatTab, p_body: body }); busy(btn, false);
+    if (!r.ok) return msgBox('#chatMsg', esc(errText(r)));
+    inp.value = ''; msgBox('#chatMsg', ''); refreshMe();
+  };
+  drawThread();
+  clearInterval(poll); poll = setInterval(() => { if (!document.hidden) refreshMe() }, 15000);
+}
+function drawThread() {
+  const t = app.querySelector('#thread'); if (!t) return;
+  const list = chatTab === 'giftee' ? me.to_giftee : me.from_santa;
+  const them = chatTab === 'giftee' ? (opened ? me.giftee : 'Your match') : 'Your Secret Santa';
+  t.innerHTML = list.length ? list.map(m => `<div class="bub ${m.mine ? 'me' : ''}">${esc(m.body)}<small>${m.mine ? 'You' : esc(them)} · ${fmtTime(m.at)}</small></div>`).join('')
+    : `<p class="empty">${chatTab === 'giftee' ? 'No messages yet. Say hi anonymously!' : 'No messages from your Santa yet.'}</p>`;
+  t.scrollTop = t.scrollHeight;
+}
+async function refreshMe() {
+  const r = await rpc('ss_me', { p_token: store.get(TOKEN) });
+  if (!r.ok) { if (r.error === 'session') { store.set(TOKEN, null); return player() } return }
+  const hadGiftee = !!me.giftee; const changed = JSON.stringify([r.to_giftee, r.from_santa]) !== JSON.stringify([me.to_giftee, me.from_santa]);
+  me = r;
+  if (!!me.giftee !== hadGiftee) return playerHome();
+  if (changed) drawThread();
+}
 
-function message(r){const link=st.link.trim();
- return `Hi ${r.giver}! Your Secret Santa match is ready 🎁\n\nTap this link, then tap Reveal:\n${link?link+(link.includes('?')?'&':'?')+'c='+r.code:'(the Secret Santa page link)'}\n\nOr open the page, tap “Reveal my match” and enter your code: ${r.code}\n\nKeep it to yourself — no one else knows who you got!`+(st.budget?`\nBudget: ${st.budget}`:'')+(st.date?`\nGift exchange: ${st.date}`:'')}
+/* ================= ADMIN ================= */
+let adm = null, armed = '';
+const PW = 'ss-admin';
+async function admin() {
+  clearInterval(poll);
+  const pw = store.get(PW, sessionStorage);
+  if (pw) { const r = await rpc('ss_admin_state', { p_pw: pw }); if (r.ok) { adm = r; return adminHome() } store.set(PW, null, sessionStorage) }
+  const p = await rpc('ss_public');
+  if (!p.ok) { app.innerHTML = `<h1>Admin</h1><p class="err">${esc(errText(p))}</p>`; return }
+  const setup = !p.event.setup;
+  app.innerHTML = `<h1>Organiser</h1><p class="sub">${setup ? 'First time here — create the admin password.' : 'Log in to manage the draw.'}</p>
+  <section class="card"><form id="al"><label for="apw">${setup ? 'New admin password (6+ characters)' : 'Admin password'}</label>
+  <input id="apw" type="password" autocomplete="${setup ? 'new-password' : 'current-password'}" required>
+  <div id="alMsg"></div><button class="btn primary big">${setup ? 'Create password' : 'Log in'}</button></form></section>
+  <p class="foot"><a href="#">← Back to the player page</a></p>`;
+  app.querySelector('#al').onsubmit = async e => {
+    e.preventDefault(); const pw = app.querySelector('#apw').value; const btn = app.querySelector('#al .btn'); busy(btn, true);
+    if (setup) { const s = await rpc('ss_admin_setup', { p_pw: pw }); if (!s.ok) { busy(btn, false); return msgBox('#alMsg', esc(errText(s))) } }
+    const r = await rpc('ss_admin_state', { p_pw: pw }); busy(btn, false);
+    if (!r.ok) return msgBox('#alMsg', esc(errText(r)));
+    store.set(PW, pw, sessionStorage); adm = r; adminHome();
+  };
+}
+const apw = () => store.get(PW, sessionStorage);
+async function reloadAdmin() { const r = await rpc('ss_admin_state', { p_pw: apw() }); if (r.ok) { adm = r; adminHome() } else { store.set(PW, null, sessionStorage); admin() } }
 
-function orgView(){
- const fams=st.families.map(f=>`<section class="card" data-f="${f.id}">
-  <div class="famhead"><input data-k="fname" value="${esc(f.name)}" aria-label="Family name" placeholder="Family name"><button class="btn x" data-a="delfam" aria-label="Remove family">×</button></div>
-  ${f.members.map(m=>`<div class="row" data-m="${m.id}"><input data-k="name" value="${esc(m.name)}" placeholder="Name" aria-label="Name"><input class="contact" data-k="contact" value="${esc(m.contact)}" placeholder="Mobile or email (optional)" aria-label="Mobile or email"><button class="btn x" data-a="delm" aria-label="Remove person">×</button></div>`).join('')}
-  <button class="btn" data-a="addm">+ Add person</button></section>`).join('');
- const res=st.results?`<section class="card" id="results"><h2>Send each person their code</h2>
-  <p class="muted">Nobody's match appears here. Copy each message and send it by text, WhatsApp or email — only the code inside unlocks it.</p>
-  ${st.results.map((r,i)=>{const msg=message(r);const c=r.contact;const isMail=c.includes('@');
-   const href=c?(isMail?`mailto:${encodeURIComponent(c)}?subject=${encodeURIComponent('Your Secret Santa match')}&body=${encodeURIComponent(msg)}`:`sms:${c.replace(/[^\d+]/g,'')}?&body=${encodeURIComponent(msg)}`):'';
-   return `<div class="send ${r.sent?'done':''}"><div><b>${esc(r.giver)}</b><small>${c?esc(c):'No contact saved'} · code ${esc(r.code)}</small>${r.sent?'<span class="tick">Marked sent</span>':''}</div>
-   <div class="acts"><button class="btn primary" data-a="copy" data-i="${i}">${copied===i?'Copied':'Copy message'}</button>${href?`<a class="btn" href="${href}">${isMail?'Email':'Text'}</a>`:''}<button class="btn" data-a="sent" data-i="${i}">${r.sent?'Undo':'Sent'}</button></div></div>`}).join('')}
-  <p class="muted" style="margin-top:12px">Text/Email buttons open your phone's app if it allows; otherwise use Copy.</p>
-  <button class="btn" data-a="redraw">${redrawArm?'Tap again to confirm — old codes stop mattering':'Redraw everyone'}</button></section>`:'';
- return `${st.sample?'<p class="note" style="margin:0 4px 10px">Sample names below — replace them with your group.</p>':''}
- <section class="card"><h2>Who's playing?</h2><p class="muted">Put each household in its own group. People in the same group will never draw each other. Someone on their own gets a group of one.</p>
- <div class="grid2"><div><label for="budget">Budget</label><input id="budget" data-g="budget" value="${esc(st.budget)}" placeholder="$30"></div>
- <div><label for="date">Exchange date</label><input id="date" data-g="date" value="${esc(st.date)}" placeholder="Christmas Day lunch"></div></div>
- <div style="margin-top:10px"><label for="link">Link to this page (to put in messages)</label><input id="link" data-g="link" value="${esc(st.link)}" placeholder="Paste the share link"></div></section>
- ${fams}
- <div class="grid2" style="margin-bottom:14px"><button class="btn" data-a="addfam">+ Add family</button><button class="btn" data-a="addsingle">+ Add single person</button></div>
- ${error?`<p class="err">${error}</p>`:''}
- ${st.results?'':'<button class="btn primary big" data-a="draw">Draw names</button>'}
- ${res}`}
+function adminHome() {
+  const ev = adm.event, drawn = ev.drawn, fams = adm.families;
+  const people = fams.flatMap(f => f.people.map(p => ({ ...p, fam: f.name })));
+  const site = location.origin + location.pathname;
+  const invite = `🎁 ${ev.name}\n\nJoin our Secret Santa here: ${site}\n\nType your name, add your email and mobile, pick a 4-digit PIN, and you'll see who you're buying for.` + (ev.budget ? `\nBudget: ${ev.budget}` : '') + (ev.date ? `\nGift exchange: ${ev.date}` : '');
+  app.innerHTML = `<div class="top"><span>Organiser</span><span><a class="btn" href="#" style="display:inline-flex;align-items:center;text-decoration:none">Player page</a> <button class="btn" id="aout">Log out</button></span></div>
+  <h1>${esc(ev.name)}</h1>
+  <section class="card"><h2>Event details</h2><p class="muted">Everyone sees these on the page.</p>
+   <label for="en">Event name</label><input id="en" value="${esc(ev.name)}">
+   <div class="grid2"><div><label for="eb">Budget</label><input id="eb" value="${esc(ev.budget)}" placeholder="$30"></div>
+   <div><label for="ed">Gift exchange</label><input id="ed" value="${esc(ev.date)}" placeholder="25 Dec, Christmas lunch"></div></div>
+   <label for="eo">Note for everyone (optional)</label><textarea id="eo" placeholder="Venue, dress code, gift rules…">${esc(ev.note)}</textarea>
+   <div id="evMsg"></div><button class="btn primary" id="saveEv" style="margin-top:12px">Save details</button></section>
 
-function revView(){
- if(revealed)return `<section class="card" style="background:transparent;box-shadow:none;padding:0"><div class="tagzone"><div class="tag">
-  <p class="to">${esc(revealed.giver)}, you're Secret Santa for</p><p class="name">${esc(revealed.to)}</p>
-  <p class="meta">Keep it secret until the exchange!</p></div></div>
-  <button class="btn big" data-a="hide" style="margin-top:18px">Hide it</button></section>`;
- return `<section class="card"><h2>Open your match</h2><p class="muted">Enter the code from your message. Dashes and capitals don't matter.</p>
- <form id="revForm"><input id="code" class="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" aria-label="Your code" value="${esc(qc||'')}">
- ${revealErr?`<p class="err" style="margin-top:10px">${revealErr}</p>`:''}
- <button class="btn primary big" style="margin-top:12px">Reveal</button></form></section>`}
+  <section class="card"><h2>Participants by family</h2>
+   <p class="muted">${drawn ? 'Names are drawn, so the list is locked. Undo the draw below to change it.' : 'People in the same family group will never draw each other. Put someone on their own in a group of one.'}</p>
+   <div id="fams">${fams.map(famHtml).join('')}</div>
+   ${drawn ? '' : `<div class="grid2" style="margin-top:4px"><button class="btn" id="addFam">+ Add family</button><button class="btn" id="addOne">+ Add single person</button></div>
+   <div id="pMsg"></div><button class="btn primary big" id="saveP">Save participant list</button>`}</section>
 
-function render(){document.getElementById('tabOrg').setAttribute('aria-pressed',mode==='org');document.getElementById('tabRev').setAttribute('aria-pressed',mode==='reveal');
- app.innerHTML=mode==='org'?orgView():revView()}
+  <section class="card"><h2>${drawn ? 'Status' : 'Draw names'}</h2>
+   ${drawn ? `<p class="muted">You can see who has joined and opened their match — never who got whom.</p>
+    <table class="stack"><thead><tr><th>Name</th><th>Joined</th><th>Seen match</th><th></th></tr></thead><tbody>
+    ${people.map(p => `<tr><td><b>${esc(p.name)}</b><small>${esc(p.fam || 'On their own')}${p.email ? ' · ' + esc(p.email) : ''}${p.phone ? ' · ' + esc(p.phone) : ''}</small></td>
+     <td class="${p.registered ? 'yes' : 'no'}">${p.registered ? 'Joined' : 'Not yet'}${p.locked ? ' (locked)' : ''}</td><td class="${p.viewed ? 'yes' : 'no'}">${p.viewed ? 'Seen' : '—'}</td>
+     <td>${p.registered ? `<button class="btn" data-reset="${p.id}">${armed === 'r' + p.id ? 'Tap again to reset' : 'Reset sign-up'}</button>` : ''}</td></tr>`).join('')}</tbody></table>
+    <p class="muted" style="margin-top:10px">“Reset sign-up” clears someone’s PIN and details (forgot PIN, or someone else used their name). Their match stays the same.</p>
+    <div id="dMsg"></div><button class="btn" id="undo">${armed === 'undo' ? 'Tap again — this deletes all matches and messages' : 'Undo the draw'}</button>`
+   : `<p class="muted">${people.length} people in ${fams.length} groups. Save the list first, then draw. The draw happens on the server, so even you won’t see the pairs.</p>
+    <div id="dMsg"></div><button class="btn primary big" id="draw">Draw names</button>`}</section>
 
-const fam=el=>st.families.find(f=>f.id===el.closest('[data-f]')?.dataset.f);
-app.addEventListener('input',e=>{const t=e.target;
- if(t.dataset.g){st[t.dataset.g]=t.value;save();return}
- const f=fam(t);if(!f)return;
- if(t.dataset.k==='fname'){f.name=t.value}else{const m=f.members.find(m=>m.id===t.closest('[data-m]').dataset.m);m[t.dataset.k]=t.value}
- st.sample=false;save()});
-app.addEventListener('click',async e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,f=fam(b);
- if(a!=='redraw')redrawArm=false;
- if(a==='addm'){f.members.push({id:uid(),name:'',contact:''})}
- else if(a==='delm'){f.members=f.members.filter(m=>m.id!==b.closest('[data-m]').dataset.m);if(!f.members.length)st.families=st.families.filter(x=>x!==f)}
- else if(a==='delfam'){st.families=st.families.filter(x=>x!==f)}
- else if(a==='addfam'){st.families.push({id:uid(),name:'New family',members:[{id:uid(),name:'',contact:''},{id:uid(),name:'',contact:''}]})}
- else if(a==='addsingle'){st.families.push({id:uid(),name:'',members:[{id:uid(),name:'',contact:''}]})}
- else if(a==='draw'){return doDraw()}
- else if(a==='redraw'){if(!redrawArm){redrawArm=true}else{st.results=null;redrawArm=false;save();render();return doDraw()}}
- else if(a==='copy'){const i=+b.dataset.i;try{await navigator.clipboard.writeText(message(st.results[i]));copied=i}catch(err){copied=-1;b.textContent='Copy blocked — select the code'};if(copied===-1)return;setTimeout(()=>{copied='';render()},1800)}
- else if(a==='sent'){const r=st.results[+b.dataset.i];r.sent=!r.sent}
- else if(a==='hide'){revealed=null}
- if(a.startsWith('add')||a.startsWith('del'))st.results=st.results&&null;
- save();render();
- if(a==='addm'||a==='addfam'||a==='addsingle'){const ins=app.querySelectorAll('input[data-k="name"]');ins[ins.length-1]?.focus()}});
-app.addEventListener('submit',e=>{e.preventDefault();const v=decode(document.getElementById('code').value);
- if(!v||v.split('\u0001').length<2){revealErr='That code doesn’t look right. Check for a missing character.';revealed=null}
- else{const[g,t,bu,d]=v.split('\u0001');revealed={giver:g,to:t,budget:bu,date:d};revealErr=''}render()});
-document.getElementById('tabOrg').onclick=()=>{mode='org';revealed=null;render()};
-document.getElementById('tabRev').onclick=()=>{mode='reveal';render()};
-addEventListener('hashchange',()=>{if(location.hash==='#reveal')mode='reveal';if(location.hash==='#organise')mode='org';render()});
-render();
+  <section class="card"><h2>Invite everyone</h2><p class="muted">Send this message to the group chat. People can join before or after the draw.</p>
+   <textarea id="inv" readonly rows="7">${esc(invite)}</textarea><button class="btn" id="copyInv" style="margin-top:8px">Copy invite</button></section>
+
+  <section class="card"><h2>Admin password</h2><label for="np">New password</label><input id="np" type="password" autocomplete="new-password">
+   <div id="pwMsg"></div><button class="btn" id="savePw" style="margin-top:10px">Change password</button></section>`;
+  bindAdmin();
+}
+function famHtml(f) {
+  const ro = adm.event.drawn ? 'readonly' : '';
+  return `<div class="card" style="background:var(--field);box-shadow:none;padding:12px" data-f="${f.id}">
+   <div class="famhead"><input data-k="fname" value="${esc(f.name)}" placeholder="Family name (optional)" aria-label="Family name" ${ro}>${ro ? '' : '<button class="btn x" data-a="delfam" aria-label="Remove family">×</button>'}</div>
+   ${f.people.map(p => `<div class="row" data-p="${p.id}"><input data-k="pname" value="${esc(p.name)}" placeholder="Name" aria-label="Name" ${ro}>${ro ? '' : '<button class="btn x" data-a="delp" aria-label="Remove person">×</button>'}</div>`).join('')}
+   ${ro ? '' : '<button class="btn" data-a="addp">+ Add person</button>'}</div>`;
+}
+function readFams() {
+  return [...app.querySelectorAll('#fams [data-f]')].map(fe => ({ id: fe.dataset.f, name: fe.querySelector('[data-k=fname]').value.trim(),
+    people: [...fe.querySelectorAll('[data-p]')].map(pe => ({ id: pe.dataset.p, name: pe.querySelector('input').value.trim() })).filter(p => p.name) }))
+    .filter(f => f.people.length);
+}
+function bindAdmin() {
+  const $ = s => app.querySelector(s);
+  $('#aout').onclick = () => { store.set(PW, null, sessionStorage); admin() };
+  $('#saveEv').onclick = async e => { busy(e.target, true);
+    const r = await rpc('ss_admin_save_event', { p_pw: apw(), p_event: { name: $('#en').value, budget: $('#eb').value, date: $('#ed').value, note: $('#eo').value } });
+    busy(e.target, false); if (!r.ok) return msgBox('#evMsg', esc(errText(r)));
+    adm.event = { ...adm.event, name: $('#en').value.trim() || 'Secret Santa', budget: $('#eb').value, date: $('#ed').value, note: $('#eo').value };
+    msgBox('#evMsg', 'Saved.', 'ok') };
+  const famsEl = $('#fams');
+  famsEl.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (!b) return; const fe = b.closest('[data-f]');
+    if (b.dataset.a === 'addp') { fe.querySelector('[data-a=addp]').insertAdjacentHTML('beforebegin', `<div class="row" data-p="${uuid()}"><input data-k="pname" placeholder="Name" aria-label="Name"><button class="btn x" data-a="delp" aria-label="Remove person">×</button></div>`); fe.querySelector('[data-p]:last-of-type input')?.focus() }
+    if (b.dataset.a === 'delp') b.closest('[data-p]').remove();
+    if (b.dataset.a === 'delfam') fe.remove();
+    msgBox('#pMsg', 'Unsaved changes — tap “Save participant list”.', 'err') });
+  famsEl.addEventListener('input', () => msgBox('#pMsg', 'Unsaved changes — tap “Save participant list”.', 'err'));
+  const addGroup = (name, n) => { famsEl.insertAdjacentHTML('beforeend', famHtml({ id: uuid(), name, people: Array.from({ length: n }, () => ({ id: uuid(), name: '' })) }));
+    famsEl.lastElementChild.querySelector('[data-k=pname]')?.focus() };
+  $('#addFam')?.addEventListener('click', () => addGroup('', 2));
+  $('#addOne')?.addEventListener('click', () => addGroup('', 1));
+  $('#saveP')?.addEventListener('click', async e => { busy(e.target, true); const r = await rpc('ss_admin_save_people', { p_pw: apw(), p_families: readFams() }); busy(e.target, false);
+    if (!r.ok) return msgBox('#pMsg', esc(errText(r))); await reloadAdmin(); msgBox('#pMsg', 'Saved.', 'ok') });
+  $('#draw')?.addEventListener('click', async e => {
+    if (app.querySelector('#pMsg')?.textContent.includes('Unsaved')) return msgBox('#dMsg', 'Save the participant list first.');
+    busy(e.target, true); const r = await rpc('ss_admin_draw', { p_pw: apw() }); busy(e.target, false);
+    if (!r.ok) return msgBox('#dMsg', esc(errText(r))); armed = ''; reloadAdmin() });
+  $('#undo')?.addEventListener('click', async e => { if (armed !== 'undo') { armed = 'undo'; return adminHome() }
+    armed = ''; busy(e.target, true); const r = await rpc('ss_admin_undo_draw', { p_pw: apw() }); if (!r.ok) { busy(e.target, false); return msgBox('#dMsg', esc(errText(r))) } reloadAdmin() });
+  app.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => { const id = b.dataset.reset;
+    if (armed !== 'r' + id) { armed = 'r' + id; return adminHome() }
+    armed = ''; busy(b, true); const r = await rpc('ss_admin_reset_person', { p_pw: apw(), p_id: id }); if (!r.ok) { busy(b, false); return msgBox('#dMsg', esc(errText(r))) } reloadAdmin() });
+  $('#copyInv').onclick = async e => { try { await navigator.clipboard.writeText($('#inv').value); e.target.textContent = 'Copied' } catch (err) { $('#inv').select(); e.target.textContent = 'Select and copy the text above' } };
+  $('#savePw').onclick = async e => { const np = $('#np').value; busy(e.target, true); const r = await rpc('ss_admin_password', { p_pw: apw(), p_new: np }); busy(e.target, false);
+    if (!r.ok) return msgBox('#pwMsg', esc(errText(r))); store.set(PW, np, sessionStorage); $('#np').value = ''; msgBox('#pwMsg', 'Password changed.', 'ok') };
+}
+
+/* ================= ROUTER ================= */
+function route() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) { app.innerHTML = `<h1>Secret Santa</h1><section class="card"><h2>Almost ready</h2><p class="muted" style="margin:0">The organiser still needs to connect the database. See the setup steps in the README on GitHub.</p></section>`; return }
+  armed = '';
+  location.hash === '#admin' ? admin() : player();
+}
+addEventListener('hashchange', route);
+route();
 }
 </script>
 </body>
